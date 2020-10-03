@@ -3,12 +3,10 @@ set -ex
 
 cd "$(dirname $0)"/..
 
-. ./ci/version
-
+# . ./ci/version
+VERSION="v$(date +"%y%m%d")-asdasd"
 echo Vendors downloading
 
 GOSUMDB=off go mod vendor -v
 
-CGO_ENABLED=0 go build -a -ldflags "-X main.Version=$VERSION -extldflags '-static -s'" -o $CI_PROJECT_NAME-$CI_COMMIT_SHORT_SHA main.go
-echo Built $CI_PROJECT_NAME-$CI_COMMIT_SHORT_SHA
-
+CGO_ENABLED=0 go build -a -ldflags "-X main.Version=$VERSION -extldflags '-static -s'" -o main main.go
