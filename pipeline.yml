@@ -1,0 +1,80 @@
+stages:
+  - precheck
+  - test
+  - build
+  - deploy
+
+default:
+  before_script:    
+    - eval $(./ci/version)    
+    - export CONTAINER_GENERAL_IMAGE="${CI_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHA}"
+    - export CONTAINER_TAGGED_IMAGE="${CI_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}"
+    - export CONTAINER_LATEST_IMAGE="${CI_REGISTRY}/${CI_PROJECT_NAME}:latest"
+
+.login_docker: &login_docker |
+  docker info
+  echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+
+precheck: 
+  stage: precheck
+  image: "golangci/golangci-lint:v1.31"
+  sync: true
+  except: 
+    branch: 
+      - "hotfix*"
+    commit: 
+      - "skip ci"
+    tag: 
+      - "hotfix*"
+  script: 
+    - "git --version"
+    - "git show-ref"
+    - "GOSUMDB=off go mod vendor -v"
+    - "go vet"
+    - "golangci-lint run --out-format colored-line-number --timeout 3m"
+
+test:
+  stage: test
+  image: golang:1.15.2-alpine
+  sync: true
+  except: 
+    branch: 
+      - "hotfix*"
+    commit: 
+      - "skip ci"
+    tag: 
+      - "hotfix*"
+  script:
+    - "GOSUMDB=off go mod vendor -v"
+    - "go test -v"
+
+build:
+  stage: build
+  image: docker:19
+  script:
+    - *login_docker
+    - docker build --pull -t $CONTAINER_GENERAL_IMAGE .
+    - docker push $CONTAINER_GENERAL_IMAGE
+  depends:
+    - precheck
+    - test
+  only:
+    - branches
+  except:
+    - master
+
+deploy:
+  stage: deploy
+  image: 
+    name: alpine/git:v2.26.2
+    entrypoint: [""]
+  only:
+    tags:
+      - "*"
+    branch:
+      - "master"
+  depends:
+    - build
+  script:
+    - 
+    
